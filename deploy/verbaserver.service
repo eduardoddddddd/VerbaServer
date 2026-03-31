@@ -1,0 +1,16 @@
+[Unit]
+Description=VerbaServer subtitle extraction service
+After=network.target
+
+[Service]
+User=Edu
+WorkingDirectory=/opt/verbaserver/app
+EnvironmentFile=/opt/verbaserver/app/.env
+ExecStart=/opt/verbaserver/venv/bin/python /opt/verbaserver/app/server_linux.py
+Restart=always
+RestartSec=5
+StandardOutput=append:/var/log/verbaserver/server.log
+StandardError=append:/var/log/verbaserver/server.err
+
+[Install]
+WantedBy=multi-user.target

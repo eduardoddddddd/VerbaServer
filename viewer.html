@@ -1,0 +1,1980 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Verbatube</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&family=Lora:ital,wght@0,400;0,500;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<style>
+  :root {
+    --bg:        #f5f5f0;
+    --surface:   #ffffff;
+    --surface2:  #eeede8;
+    --border:    #d4d0c8;
+    --border2:   #bbb8ae;
+    --gold:      #7a5c1e;
+    --gold-dim:  #9a7432;
+    --gold-glow: rgba(122, 92, 30, 0.10);
+    --text:      #1a1a16;
+    --text-muted:#3a3a30;
+    --text-dim:  #7a7a6a;
+    --red:       #b83232;
+    --green:     #2a7a4a;
+    --sidebar-w: 420px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Outfit', sans-serif;
+    font-size: 16px;
+    overflow: hidden;
+  }
+
+  /* ── EXPORT ACTIONS ── */
+  .export-actions {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .exp-btn {
+    font-size: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    color: var(--text-muted);
+    padding: 3px 8px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+  }
+  .exp-btn:hover { border-color: var(--gold-dim); color: var(--gold); background: var(--surface); }
+  .exp-btn svg { width: 12px; height: 12px; opacity: 0.7; }
+
+  /* Template para PDF (oculto en UI) */
+  #pdf-template {
+    display: none;
+    padding: 40px 60px;
+    background: white;
+    color: #1a1a1a;
+  }
+  .pdf-header {
+    border-bottom: 2px solid #7a5c1e;
+    margin-bottom: 30px;
+    padding-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+  }
+  .pdf-logo { font-size: 24px; font-weight: 700; color: #7a5c1e; font-family: 'Outfit', sans-serif; }
+  .pdf-logo span { color: #3a3a30; font-weight: 300; }
+  .pdf-meta-box { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #7a7a6a; text-align: right; }
+  .pdf-title { font-size: 28px; font-weight: 700; line-height: 1.2; margin-bottom: 20px; font-family: 'Outfit', sans-serif; }
+  .pdf-info-grid { 
+    display: grid; 
+    grid-template-columns: auto 1fr; 
+    gap: 8px 20px; 
+    margin-bottom: 40px; 
+    font-size: 13px;
+    padding: 15px;
+    background: #f9f9f7;
+    border-radius: 4px;
+  }
+  .pdf-info-label { font-weight: 600; color: #7a5c1e; text-transform: uppercase; font-size: 10px; letter-spacing: 0.05em; }
+  .pdf-content { font-family: 'Lora', serif; font-size: 13pt; line-height: 2; color: #111; text-align: justify; }
+  .pdf-content p { margin-bottom: 2.2em; text-indent: 0; }
+  .pdf-footer { margin-top: 50px; border-top: 1px solid #d4d0c8; padding-top: 15px; font-size: 10px; color: #7a7a6a; text-align: center; font-style: italic; }
+
+  /* ── LAYOUT ── */
+  #app {
+    display: grid;
+    grid-template-columns: var(--sidebar-w) 1fr;
+    grid-template-rows: 52px 1fr;
+    height: 100vh;
+  }
+
+  /* ── DOWNLOAD PANEL ── */
+  #download-panel {
+    display: none;
+    flex-direction: column;
+    gap: 20px;
+    padding: 40px 64px;
+    max-width: 700px;
+    overflow-y: auto;
+  }
+  #download-panel.visible { display: flex; }
+
+  .dl-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+  .dl-subtitle { font-size: 13px; color: var(--text-muted); line-height: 1.6; }
+
+  .dl-field label {
+    display: block;
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+  .dl-field input, .dl-field select {
+    width: 100%;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    color: var(--text);
+    padding: 10px 14px;
+    border-radius: 4px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .dl-field input:focus, .dl-field select:focus { border-color: var(--gold-dim); }
+  .dl-field input::placeholder { color: var(--text-dim); }
+
+  .dl-btn-row { display: flex; gap: 10px; align-items: center; }
+
+  .dl-btn {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    padding: 9px 22px;
+    border-radius: 4px;
+    border: 1px solid var(--gold-dim);
+    background: var(--gold-glow);
+    color: var(--gold);
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: 0.04em;
+  }
+  .dl-btn:hover { background: rgba(200,164,74,0.2); border-color: var(--gold); }
+  .dl-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .dl-btn-sec {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    padding: 9px 18px;
+    border-radius: 4px;
+    border: 1px solid var(--border2);
+    background: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .dl-btn-sec:hover { border-color: var(--gold-dim); color: var(--text); }
+
+  #dl-log {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 16px;
+    min-height: 200px;
+    max-height: 400px;
+    overflow-y: auto;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text-muted);
+    line-height: 1.7;
+    white-space: pre-wrap;
+    display: none;
+  }
+  #dl-log.visible { display: block; }
+
+  .dl-status {
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text-dim);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+   .dl-status .spinner { width: 10px; height: 10px; border-width: 1px; }
+
+  /* ── LLM PANEL ── */
+  #llm-panel {
+    display: none;
+    flex-direction: column;
+    gap: 20px;
+    padding: 40px 64px;
+    max-width: 900px;
+    overflow-y: auto;
+    height: 100%;
+  }
+  #llm-panel.visible { display: flex; }
+
+  .llm-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+  .llm-subtitle { font-size: 13px; color: var(--text-muted); line-height: 1.6; }
+
+  .llm-field label {
+    display: block;
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+  .llm-field textarea {
+    width: 100%;
+    font-family: 'Outfit', sans-serif;
+    font-size: 14px;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    color: var(--text);
+    padding: 12px 14px;
+    border-radius: 4px;
+    outline: none;
+    transition: border-color 0.2s;
+    resize: vertical;
+    min-height: 100px;
+  }
+  .llm-field textarea:focus { border-color: var(--gold-dim); }
+  .llm-field textarea::placeholder { color: var(--text-dim); }
+
+  .llm-field select,
+  .llm-field input {
+    width: 100%;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    color: var(--text);
+    padding: 10px 14px;
+    border-radius: 4px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .llm-field select:focus,
+  .llm-field input:focus { border-color: var(--gold-dim); }
+  .llm-field .llm-hint {
+    font-size: 11px;
+    color: var(--text-dim);
+    font-style: italic;
+    margin-top: 4px;
+  }
+
+  .llm-btn {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    padding: 9px 22px;
+    border-radius: 4px;
+    border: 1px solid var(--gold-dim);
+    background: var(--gold-glow);
+    color: var(--gold);
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: 0.04em;
+    align-self: flex-start;
+  }
+  .llm-btn:hover { background: rgba(200,164,74,0.2); border-color: var(--gold); }
+  .llm-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  #llm-response {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 20px;
+    min-height: 150px;
+    max-height: 500px;
+    overflow-y: auto;
+    font-family: 'Outfit', sans-serif;
+    font-size: 14px;
+    color: var(--text);
+    line-height: 1.7;
+    display: none;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+  }
+  #llm-response.visible { display: block; }
+
+  .llm-loading {
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text-dim);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .llm-loading .spinner { width: 10px; height: 10px; border-width: 1px; }
+
+  #llm-response.error {
+    border-color: var(--red);
+    background: rgba(184,50,50,0.05);
+    color: var(--red);
+  }
+
+  /* ── TOPBAR ── */
+  #topbar {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 0 32px;
+    border-bottom: 2px solid var(--border);
+    background: var(--surface);
+    position: relative;
+    z-index: 10;
+  }
+
+  #logo {
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: var(--gold);
+    text-transform: uppercase;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+
+  /* Nav tabs */
+  .nav-tabs {
+    display: flex;
+    gap: 2px;
+    margin-left: 8px;
+  }
+  .nav-tab {
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    padding: 4px 14px;
+    border-radius: 3px 3px 0 0;
+    border: 1px solid transparent;
+    border-bottom: none;
+    cursor: pointer;
+    color: var(--text-dim);
+    background: none;
+    transition: all 0.15s;
+    letter-spacing: 0.04em;
+  }
+  .nav-tab:hover { color: var(--text-muted); }
+  .nav-tab.active {
+    color: var(--gold);
+    border-color: var(--border2);
+    background: var(--surface);
+  }
+
+  #logo span {
+    color: var(--text-muted);
+    font-weight: 300;
+  }
+
+  .top-divider { width: 1px; height: 20px; background: var(--border2); }
+
+  #stats-bar {
+    font-size: 13px;
+    color: var(--text-dim);
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.04em;
+  }
+
+  #stats-bar b { color: var(--text-muted); font-weight: 600; }
+
+  .top-right {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  #lang-filter {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    color: var(--text-muted);
+    padding: 4px 10px;
+    border-radius: 3px;
+    cursor: pointer;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  #lang-filter:focus { border-color: var(--gold-dim); }
+
+  /* ── SIDEBAR ── */
+  #sidebar {
+    border-right: 1px solid var(--border);
+    background: var(--surface);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  #search-wrap {
+    padding: 14px 16px 10px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  #search-box {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border2);
+    color: var(--text);
+    font-family: 'Outfit', sans-serif;
+    font-size: 14px;
+    padding: 9px 14px 9px 36px;
+    border-radius: 4px;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    position: relative;
+  }
+  #search-box:focus {
+    border-color: var(--gold-dim);
+    box-shadow: 0 0 0 2px var(--gold-glow);
+  }
+  #search-box::placeholder { color: var(--text-dim); }
+
+  .search-icon {
+    position: absolute;
+    left: 28px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-dim);
+    font-size: 14px;
+    pointer-events: none;
+  }
+
+  .search-wrap-inner {
+    position: relative;
+  }
+
+  #search-count {
+    font-size: 10px;
+    color: var(--text-dim);
+    font-family: 'JetBrains Mono', monospace;
+    padding: 6px 2px 0;
+    min-height: 18px;
+    transition: color 0.2s;
+  }
+  #search-count.has-results { color: var(--gold-dim); }
+
+  /* Channel filter */
+  #channel-filter-wrap {
+    padding: 8px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .ch-tag {
+    font-size: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    padding: 3px 9px;
+    border-radius: 2px;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 180px;
+  }
+  .ch-tag:hover { border-color: var(--gold-dim); color: var(--text); }
+  .ch-tag.active {
+    background: var(--gold-glow);
+    border-color: var(--gold);
+    color: var(--gold);
+  }
+
+  /* Video list */
+  #video-list {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  #video-list::-webkit-scrollbar { width: 4px; }
+  #video-list::-webkit-scrollbar-track { background: transparent; }
+  #video-list::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+  #video-list::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+
+  .video-card {
+    display: flex;
+    gap: 12px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.15s;
+    position: relative;
+  }
+  .video-card:hover { background: var(--surface2); }
+  .video-card.active {
+    background: var(--gold-glow);
+    border-left: 2px solid var(--gold);
+    padding-left: 14px;
+  }
+
+  .thumb-wrap {
+    flex-shrink: 0;
+    width: 90px;
+    height: 51px;
+    border-radius: 3px;
+    overflow: hidden;
+    background: var(--surface2);
+    position: relative;
+  }
+
+  .thumb-wrap img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  .thumb-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-dim);
+    font-size: 20px;
+  }
+
+  .thumb-duration {
+    position: absolute;
+    bottom: 2px;
+    right: 3px;
+    background: rgba(0,0,0,0.75);
+    color: #fff;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    padding: 1px 4px;
+    border-radius: 2px;
+    letter-spacing: 0.05em;
+  }
+
+  .card-meta {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .card-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    line-height: 1.35;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .card-channel {
+    font-size: 12px;
+    color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .card-date {
+    font-size: 11px;
+    color: var(--text-dim);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .card-snippet {
+    font-size: 12px;
+    color: var(--text-muted);
+    line-height: 1.45;
+    font-style: italic;
+    margin-top: 3px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .card-snippet mark {
+    background: rgba(200,164,74,0.25);
+    color: var(--gold);
+    font-style: normal;
+    border-radius: 1px;
+    padding: 0 1px;
+  }
+
+  .lang-badge {
+    display: inline-block;
+    font-size: 9px;
+    font-family: 'JetBrains Mono', monospace;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    color: var(--text-dim);
+    padding: 1px 5px;
+    border-radius: 2px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  /* ── MAIN CONTENT ── */
+  #main {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--bg);
+  }
+
+  /* Empty state */
+  #empty-state {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    color: var(--text-dim);
+  }
+
+  .empty-icon { font-size: 48px; opacity: 0.3; }
+  .empty-title { font-size: 16px; font-weight: 500; color: var(--text-muted); }
+  .empty-sub { font-size: 13px; color: var(--text-dim); text-align: center; max-width: 340px; line-height: 1.6; }
+
+  /* Video viewer */
+  #viewer {
+    display: none;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+  }
+  #viewer.visible { display: flex; }
+
+  #viewer-header {
+    padding: 18px 32px 14px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  #viewer-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1.3;
+    margin-bottom: 10px;
+  }
+
+  #viewer-meta {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .vm-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 13px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text-muted);
+  }
+
+  .vm-item .icon { color: var(--text-dim); }
+
+  .yt-link {
+    margin-left: auto;
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--gold);
+    text-decoration: none;
+    border: 1px solid var(--gold-dim);
+    padding: 4px 12px;
+    border-radius: 3px;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .yt-link:hover {
+    background: var(--gold-glow);
+    border-color: var(--gold);
+  }
+
+  /* Viewer toolbar */
+  #viewer-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 32px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    flex-shrink: 0;
+  }
+
+  .tb-btn {
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    background: none;
+    border: 1px solid var(--border2);
+    color: var(--text-muted);
+    padding: 4px 12px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .tb-btn:hover { border-color: var(--gold-dim); color: var(--text); }
+  .tb-btn.active {
+    background: var(--gold-glow);
+    border-color: var(--gold-dim);
+    color: var(--gold);
+  }
+
+  #inline-search {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    color: var(--text);
+    padding: 4px 12px;
+    border-radius: 3px;
+    outline: none;
+    width: 200px;
+    transition: border-color 0.2s;
+  }
+  #inline-search:focus { border-color: var(--gold-dim); }
+  #inline-search::placeholder { color: var(--text-dim); }
+
+  #match-nav {
+    font-size: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text-dim);
+  }
+
+  /* Subtitle content */
+  #subtitle-scroll {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 48px 120px 80px 120px;
+  }
+
+  #subtitle-scroll::-webkit-scrollbar { width: 5px; }
+  #subtitle-scroll::-webkit-scrollbar-track { background: transparent; }
+  #subtitle-scroll::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+  /* Loading */
+  #loading-indicator {
+    padding: 60px;
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 13px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .spinner {
+    display: inline-block;
+    width: 16px; height: 16px;
+    border: 2px solid var(--border2);
+    border-top-color: var(--gold);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    vertical-align: middle;
+    margin-right: 8px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Subtitle paragraphs */
+  .subtitle-block {
+    margin-bottom: 32px;
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+    padding-bottom: 28px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .ts-gutter {
+    flex-shrink: 0;
+    width: 64px;
+    text-align: right;
+  }
+
+  .ts-link {
+    font-size: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text-dim);
+    text-decoration: none;
+    transition: color 0.15s;
+    white-space: nowrap;
+  }
+  .ts-link:hover { color: var(--gold); }
+
+  .sub-text {
+    flex: 1;
+    font-family: 'Outfit', sans-serif;
+    font-size: 20px;
+    font-weight: 500;
+    line-height: 2.2;
+    color: #111;
+  }
+
+  .sub-text mark {
+    background: rgba(122,92,30,0.15);
+    color: var(--gold);
+    border-radius: 2px;
+    padding: 0 2px;
+    font-style: normal;
+  }
+
+  .sub-text mark.current {
+    background: rgba(122,92,30,0.30);
+    outline: 1px solid var(--gold);
+  }
+
+  /* Clean mode (no timestamps) */
+  .clean-paragraph {
+    font-family: 'Outfit', sans-serif;
+    font-size: 20px;
+    font-weight: 500;
+    line-height: 2.2;
+    color: #111;
+    margin-bottom: 2.8em;
+    max-width: 860px;
+    padding-bottom: 0.8em;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* Error */
+  .error-msg {
+    padding: 32px;
+    color: var(--red);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+  }
+
+  /* No results */
+  .no-results {
+    padding: 60px 32px;
+    text-align: center;
+    color: var(--text-dim);
+  }
+  .no-results strong { color: var(--text-muted); }
+
+  /* Loading screen */
+  #loading-screen {
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    z-index: 100;
+  }
+  #loading-screen .logo-big {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    color: var(--gold);
+    text-transform: uppercase;
+  }
+  #loading-screen .logo-big span { color: var(--text-muted); font-weight: 400; }
+  #loading-screen .load-msg {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    color: var(--text-dim);
+  }
+  #loading-screen .load-bar-wrap {
+    width: 200px;
+    height: 2px;
+    background: var(--border2);
+    border-radius: 1px;
+    overflow: hidden;
+  }
+  #loading-screen .load-bar {
+    height: 100%;
+    background: var(--gold);
+    animation: loadpulse 1.2s ease-in-out infinite;
+    transform-origin: left;
+  }
+  @keyframes loadpulse {
+    0% { transform: scaleX(0); }
+    50% { transform: scaleX(0.7); }
+    100% { transform: scaleX(1); }
+  }
+
+  /* Scrollbar global */
+  * { scrollbar-width: thin; scrollbar-color: var(--border2) transparent; }
+</style>
+</head>
+<body>
+
+<!-- Loading screen -->
+<div id="loading-screen">
+  <div class="logo-big">Verba<span>tube</span></div>
+  <div class="load-bar-wrap"><div class="load-bar"></div></div>
+  <div class="load-msg" id="load-msg">Cargando índice…</div>
+</div>
+
+<div id="app" style="display:none">
+
+  <!-- TOPBAR -->
+  <div id="topbar">
+    <div id="logo" onclick="setAppTab('library')">Verba<span>tube</span></div>
+    <div class="nav-tabs">
+      <button class="nav-tab active" id="tab-library" onclick="setAppTab('library')">Biblioteca</button>
+      <button class="nav-tab" id="tab-llm" onclick="setAppTab('llm')">🤖 Preguntas IA</button>
+      <button class="nav-tab" id="tab-download" onclick="setAppTab('download')">+ Descargar</button>
+    </div>
+    <div class="top-divider"></div>
+    <div id="stats-bar">—</div>
+    <div class="top-right">
+      <select id="lang-filter">
+        <option value="">Todos los idiomas</option>
+        <option value="es">Español</option>
+        <option value="en">English</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- SIDEBAR -->
+  <div id="sidebar">
+    <div id="search-wrap">
+      <div class="search-wrap-inner">
+        <span class="search-icon">⌕</span>
+        <input id="search-box" type="search" placeholder="Buscar en todos los subtítulos…" autocomplete="off" spellcheck="false">
+      </div>
+      <div id="search-count"></div>
+    </div>
+    <div id="channel-filter-wrap"></div>
+    <div id="video-list"></div>
+  </div>
+
+  <!-- MAIN -->
+  <div id="main">
+
+    <!-- Download panel -->
+    <div id="download-panel">
+      <div>
+        <div class="dl-title">Descargar canal / playlist</div>
+        <div class="dl-subtitle">Introduce la URL de un canal, playlist o vídeo de YouTube.<br>Se descargarán los subtítulos y se reindexará automáticamente.</div>
+      </div>
+      <div class="dl-field">
+        <label>URL de YouTube</label>
+        <input id="dl-url" type="url" placeholder="https://www.youtube.com/@canal  ó  /playlist?list=...  ó  /watch?v=...">
+      </div>
+      <div class="dl-field">
+        <label>Idiomas</label>
+        <select id="dl-lang">
+          <option value="es,en">Español + Inglés (por defecto)</option>
+          <option value="es">Solo Español</option>
+          <option value="en">Solo Inglés</option>
+        </select>
+      </div>
+      <div class="dl-btn-row">
+        <button class="dl-btn" id="dl-start-btn" onclick="startDownload()">▶ Iniciar descarga</button>
+        <button class="dl-btn-sec" onclick="startReindex()">↺ Solo reindexar</button>
+        <div class="dl-status" id="dl-status" style="display:none">
+          <span class="spinner"></span><span id="dl-status-msg">Procesando…</span>
+        </div>
+      </div>
+      <div id="dl-log"></div>
+    </div>
+
+    <!-- LLM Query panel -->
+    <div id="llm-panel">
+      <div>
+        <div class="llm-title">Consultar con IA 🤖</div>
+        <div class="llm-subtitle">Haz preguntas complejas sobre el contenido de tus vídeos. La IA tiene acceso a todos los subtítulos indexados y puede analizar patrones, temas y conexiones.</div>
+      </div>
+      <div class="llm-field">
+        <label for="llm-provider">Proveedor LLM</label>
+        <select id="llm-provider"></select>
+      </div>
+      <div class="llm-field">
+        <label for="llm-model">Modelo</label>
+        <select id="llm-model"></select>
+      </div>
+      <div class="llm-field">
+        <label for="llm-api-key">Clave API</label>
+        <input id="llm-api-key" type="password" autocomplete="new-password" placeholder="Introduce tu API key (ej. sk_… o token de Google)"/>
+        <div class="llm-hint">La clave se usa solo en esta sesión y no se almacena en el servidor (para Gemini responde al prompt del servidor).</div>
+      </div>
+      <div class="llm-field">
+        <label>Tu pregunta</label>
+        <textarea id="llm-query" placeholder="Ej: ¿Cuáles son los temas principales sobre astrología que se mencionan? ¿Hay alguna conexión entre los vídeos de diferentes canales?"></textarea>
+      </div>
+      <div style="display:flex;gap:12px;align-items:center">
+        <button class="llm-btn" id="llm-send-btn" onclick="sendLLMQuery()">▶ Enviar pregunta</button>
+        <div class="export-actions" id="llm-export-actions" style="display:none">
+          <button class="exp-btn" onclick="ExportManager.aiResponseToMD()" title="Exportar respuesta a Markdown">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+            MD
+          </button>
+          <button class="exp-btn" onclick="ExportManager.aiResponseToPDF()" title="Exportar respuesta a PDF">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+            PDF
+          </button>
+        </div>
+      </div>
+      <div class="llm-loading" id="llm-loading" style="display:none">
+        <span class="spinner"></span><span>Procesando consulta…</span>
+      </div>
+      <div id="llm-response"></div>
+    </div>
+
+    <div id="library-view" style="display:flex;flex-direction:column;height:100%;overflow:hidden">
+    <div id="empty-state">
+      <div class="empty-icon">◈</div>
+      <div class="empty-title">Selecciona un vídeo</div>
+      <div class="empty-sub">Elige un capítulo de la lista o usa el buscador para encontrar contenido específico dentro de todos los subtítulos.</div>
+    </div>
+
+    <div id="viewer">
+      <div id="viewer-header">
+        <div id="viewer-title"></div>
+        <div id="viewer-meta"></div>
+      </div>
+      <div id="viewer-toolbar">
+        <button class="tb-btn active" id="btn-clean">Sin timestamps</button>
+        <button class="tb-btn" id="btn-ts">Con timestamps</button>
+        <div class="top-divider" style="height:14px;margin:0 4px"></div>
+        <div class="export-actions">
+          <button class="exp-btn" onclick="ExportManager.activeVideoToMD()" title="Exportar transcripción a Markdown">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+            MD
+          </button>
+          <button class="exp-btn" onclick="ExportManager.activeVideoToPDF()" title="Exportar transcripción a PDF">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+            PDF
+          </button>
+        </div>
+        <div style="flex:1"></div>
+        <input id="inline-search" type="search" placeholder="Buscar en este vídeo…" autocomplete="off">
+        <div id="match-nav"></div>
+      </div>
+      <div id="subtitle-scroll"></div>
+    </div>
+  </div><!-- /library-view -->
+
+</div><!-- /main -->
+</div>
+
+<!-- Template invisible para generación de PDF -->
+<div id="pdf-template-container" style="position: absolute; left: -9999px; top: 0;">
+  <div id="pdf-template">
+    <div class="pdf-header">
+      <div class="pdf-logo">Verba<span>tube</span></div>
+      <div class="pdf-meta-box" id="pdf-date-meta"></div>
+    </div>
+    <div class="pdf-title" id="pdf-main-title"></div>
+    <div class="pdf-info-grid">
+      <div class="pdf-info-label">Canal</div>
+      <div id="pdf-info-channel"></div>
+      <div class="pdf-info-label">Publicado</div>
+      <div id="pdf-info-date"></div>
+      <div class="pdf-info-label">Fuente</div>
+      <div id="pdf-info-url" style="color:#7a5c1e;word-break:break-all"></div>
+    </div>
+    <div class="pdf-content" id="pdf-main-content"></div>
+    <div class="pdf-footer">
+      Documento generado automáticamente por VerbaSant — Inteligencia de Vídeo Local
+    </div>
+  </div>
+</div>
+
+<script>
+// ── STATE ──
+let index = null;
+let filteredVideos = [];
+let activeVideoId = null;
+let activeChannel = null;
+let activeLang = "";
+let searchQuery = "";
+let viewMode = "clean"; // "clean" | "ts"
+let inlineQuery = "";
+let inlineMatches = [];
+let inlineCurrent = 0;
+let loadedCues = []; // parsed cues for active video
+let searchTimer = null;
+const LLM_PROVIDER_MAP = {
+  anthropic: {
+    label: "Anthropic Claude",
+    models: [
+      { value: "claude-3-5-sonnet-20241022", label: "Claude 3.5 Sonnet (predeterminado)" },
+      { value: "claude-3-5-sonnet-20241401", label: "Claude 3.5 Sonnet (tester)" },
+      { value: "claude-3-opus-20250219", label: "Claude 3 Opus" }
+    ]
+  },
+  openai: {
+    label: "OpenAI Chat",
+    models: [
+      { value: "gpt-4o-mini", label: "GPT-4o Mini (económico)" },
+      { value: "gpt-4o", label: "GPT-4o (responsivo)" },
+      { value: "gpt-4o-mini-2024-12-17", label: "GPT-4o Mini v2024-12-17" }
+    ]
+  },
+  gemini: {
+    label: "Google Gemini",
+    models: [
+      { value: "gemini-2.5-flash", label: "Gemini 2.5 Flash (free tier)" },
+      { value: "gemini-1.5-flash", label: "Gemini 1.5 Flash" },
+      { value: "gemini-2.0-flash", label: "Gemini 2.0 Flash (requiere billing)" }
+    ]
+  }
+};
+
+// ── UTILS ──
+function formatDate(d) {
+  if (!d || d.length < 8) return "";
+  return `${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6,8)}`;
+}
+
+function escapeRx(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function secondsToTs(s) {
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = Math.floor(s % 60);
+  if (h > 0) return `${h}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+  return `${m}:${String(sec).padStart(2,'0')}`;
+}
+
+function highlight(text, query) {
+  if (!query) return text;
+  const rx = new RegExp(`(${escapeRx(query)})`, 'gi');
+  return text.replace(rx, '<mark>$1</mark>');
+}
+
+function getSnippet(fullText, query, len = 180) {
+  if (!query) return fullText.slice(0, len) + (fullText.length > len ? '…' : '');
+  const idx = fullText.toLowerCase().indexOf(query.toLowerCase());
+  if (idx === -1) return fullText.slice(0, len) + '…';
+  const start = Math.max(0, idx - 60);
+  const end = Math.min(fullText.length, idx + len - 60);
+  const snippet = (start > 0 ? '…' : '') + fullText.slice(start, end) + (end < fullText.length ? '…' : '');
+  return highlight(snippet, query);
+}
+
+// ── LOAD INDEX ──
+async function loadIndex() {
+  try {
+    setLoadMsg("Cargando verbatube.json…");
+    const res = await fetch("verbatube.json?t=" + Date.now());
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    index = await res.json();
+    setLoadMsg(`${index.total_videos} vídeos cargados`);
+    setTimeout(() => {
+      document.getElementById("loading-screen").style.display = "none";
+      document.getElementById("app").style.display = "";
+      init();
+    }, 400);
+  } catch(e) {
+    setLoadMsg("⚠ Error: " + e.message + " — ¿Ejecutaste indexer.py? ¿Está el servidor activo?");
+  }
+}
+
+function setLoadMsg(msg) {
+  document.getElementById("load-msg").textContent = msg;
+}
+
+function setupLLMSelectors() {
+  const providerSelect = document.getElementById('llm-provider');
+  if (!providerSelect) return;
+
+  providerSelect.innerHTML = Object.entries(LLM_PROVIDER_MAP)
+    .map(([key, info]) => `<option value="${key}">${info.label}</option>`)
+    .join('');
+  providerSelect.addEventListener('change', () => updateLLMModelOptions(providerSelect.value));
+  updateLLMModelOptions(providerSelect.value);
+}
+
+function updateLLMModelOptions(providerKey) {
+  const modelSelect = document.getElementById('llm-model');
+  if (!modelSelect) return;
+  const provider = LLM_PROVIDER_MAP[providerKey] || LLM_PROVIDER_MAP.anthropic;
+  modelSelect.innerHTML = provider.models
+    .map(m => `<option value="${m.value}">${m.label}</option>`)
+    .join('');
+  modelSelect.value = provider.models[0].value;
+}
+
+// ── INIT ──
+function init() {
+  updateStats();
+  buildChannelFilter();
+  applyFilters();
+  
+  const searchBox = document.getElementById("search-box");
+  searchBox.addEventListener("input", () => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => {
+      searchQuery = searchBox.value.trim();
+      applyFilters();
+    }, 280);
+  });
+
+  document.getElementById("lang-filter").addEventListener("change", e => {
+    activeLang = e.target.value;
+    applyFilters();
+  });
+
+  document.getElementById("btn-clean").addEventListener("click", () => setViewMode("clean"));
+  document.getElementById("btn-ts").addEventListener("click", () => setViewMode("ts"));
+
+  const inSrch = document.getElementById("inline-search");
+  let inlineTimer;
+  inSrch.addEventListener("input", () => {
+    clearTimeout(inlineTimer);
+    inlineTimer = setTimeout(() => {
+      inlineQuery = inSrch.value.trim();
+      renderSubtitleContent();
+    }, 200);
+  });
+  inSrch.addEventListener("keydown", e => {
+    if (e.key === "Enter") navigateMatches(e.shiftKey ? -1 : 1);
+  });
+  setupLLMSelectors();
+}
+
+function updateStats() {
+  const channels = index.channels.length;
+  const videos = index.total_videos;
+  document.getElementById("stats-bar").innerHTML =
+    `<b>${videos}</b> vídeos · <b>${channels}</b> canales`;
+}
+
+function buildChannelFilter() {
+  const wrap = document.getElementById("channel-filter-wrap");
+  wrap.innerHTML = "";
+
+  const all = document.createElement("div");
+  all.className = "ch-tag active";
+  all.textContent = "Todos";
+  all.dataset.ch = "";
+  all.addEventListener("click", () => setChannel(""));
+  wrap.appendChild(all);
+
+  for (const ch of index.channels) {
+    const tag = document.createElement("div");
+    tag.className = "ch-tag";
+    tag.textContent = `${ch.name} (${ch.count})`;
+    tag.title = ch.name;
+    tag.dataset.ch = ch.name;
+    tag.addEventListener("click", () => setChannel(ch.name));
+    wrap.appendChild(tag);
+  }
+}
+
+function setChannel(ch) {
+  activeChannel = ch || null;
+  document.querySelectorAll(".ch-tag").forEach(t => {
+    t.classList.toggle("active", t.dataset.ch === (ch || ""));
+  });
+  applyFilters();
+}
+
+// ── FILTERING ──
+function applyFilters() {
+  let videos = index.videos;
+
+  if (activeChannel) {
+    videos = videos.filter(v => v.channel === activeChannel);
+  }
+
+  if (activeLang) {
+    videos = videos.filter(v => v.language === activeLang || v.languages_available?.includes(activeLang));
+  }
+
+  if (searchQuery.length >= 2) {
+    const q = searchQuery.toLowerCase();
+    videos = videos.filter(v =>
+      v.title.toLowerCase().includes(q) ||
+      v.full_text.toLowerCase().includes(q)
+    );
+  }
+
+  filteredVideos = videos;
+  renderVideoList();
+
+  // Update search count
+  const countEl = document.getElementById("search-count");
+  if (searchQuery.length >= 2) {
+    countEl.textContent = `${videos.length} resultado${videos.length !== 1 ? 's' : ''}`;
+    countEl.className = videos.length > 0 ? "has-results" : "";
+  } else {
+    countEl.textContent = "";
+    countEl.className = "";
+  }
+}
+
+// ── VIDEO LIST ──
+function renderVideoList() {
+  const list = document.getElementById("video-list");
+  list.innerHTML = "";
+
+  if (filteredVideos.length === 0) {
+    list.innerHTML = `<div class="no-results"><strong>Sin resultados</strong><br>Prueba con otra búsqueda o filtro</div>`;
+    return;
+  }
+
+  const frag = document.createDocumentFragment();
+  for (const v of filteredVideos) {
+    frag.appendChild(buildVideoCard(v));
+  }
+  list.appendChild(frag);
+}
+
+function buildVideoCard(v) {
+  const card = document.createElement("div");
+  card.className = "video-card" + (v.video_id === activeVideoId ? " active" : "");
+  card.dataset.id = v.video_id;
+
+  const snippet = searchQuery.length >= 2 ? getSnippet(v.full_text, searchQuery) : v.text_preview;
+
+  card.innerHTML = `
+    <div class="thumb-wrap">
+      ${v.thumbnail
+        ? `<img src="${v.thumbnail}" alt="" loading="lazy" onerror="this.parentElement.innerHTML='<div class=thumb-placeholder>▶</div>'">`
+        : `<div class="thumb-placeholder">▶</div>`}
+      ${v.duration_fmt ? `<div class="thumb-duration">${v.duration_fmt}</div>` : ''}
+    </div>
+    <div class="card-meta">
+      <div class="card-title">${v.title}</div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <div class="card-channel">${v.channel}</div>
+        <span class="lang-badge">${v.language || '?'}</span>
+      </div>
+      <div class="card-date">${formatDate(v.published)}</div>
+      <div class="card-snippet">${snippet}</div>
+    </div>
+  `;
+
+  card.addEventListener("click", () => loadVideo(v));
+  return card;
+}
+
+// ── VIDEO LOADER ──
+async function loadVideo(v) {
+  // Update active state in list
+  document.querySelectorAll(".video-card").forEach(c => {
+    c.classList.toggle("active", c.dataset.id === v.video_id);
+  });
+
+  activeVideoId = v.video_id;
+
+  // Show viewer
+  document.getElementById("empty-state").style.display = "none";
+  const viewer = document.getElementById("viewer");
+  viewer.classList.add("visible");
+
+  // Header
+  document.getElementById("viewer-title").textContent = v.title;
+
+  const ytSecs = 0;
+  document.getElementById("viewer-meta").innerHTML = `
+    <div class="vm-item"><span class="icon">◎</span>${v.channel}</div>
+    ${v.published ? `<div class="vm-item"><span class="icon">◷</span>${formatDate(v.published)}</div>` : ''}
+    ${v.duration_fmt ? `<div class="vm-item"><span class="icon">⏱</span>${v.duration_fmt}</div>` : ''}
+    <div class="vm-item"><span class="lang-badge">${v.language || '?'}</span></div>
+    <a class="yt-link" href="${v.url}" target="_blank" rel="noopener">▶ Ver en YouTube</a>
+  `;
+
+  // Clear inline search
+  document.getElementById("inline-search").value = "";
+  inlineQuery = "";
+  inlineMatches = [];
+
+  // Load VTT
+  const scroll = document.getElementById("subtitle-scroll");
+  scroll.innerHTML = `<div id="loading-indicator"><span class="spinner"></span>Cargando subtítulos…</div>`;
+
+  try {
+    const res = await fetch(v.subtitle_file + "?t=" + Date.now());
+    if (!res.ok) throw new Error(`No se pudo cargar ${v.subtitle_file} (HTTP ${res.status})`);
+    const vttText = await res.text();
+    // Filtrar cues de transición (<50ms) — son artefactos del ASR de YouTube
+  const rawCues = parseVTT(vttText).filter(c => (c.end - c.start) >= 0.05);
+  loadedCues = dedupCues(rawCues);
+    renderSubtitleContent();
+  } catch(e) {
+    // Fallback: usar full_text del JSON con deduplicación
+    loadedCues = [];
+    const rawText = v.full_text || '';
+    // Deduplicar: partir en frases y eliminar repeticiones consecutivas
+    const sentences = rawText.split(/(?<=[.?!])\s+/);
+    const deduped = [];
+    for (let i = 0; i < sentences.length; i++) {
+      const s = sentences[i].trim();
+      if (!s) continue;
+      // Saltar si la frase anterior ya termina con o contiene este fragmento
+      const prev = deduped[deduped.length - 1] || '';
+      if (prev && (prev.includes(s) || s.length < 12)) continue;
+      deduped.push(s);
+    }
+    // Agrupar en párrafos de ~4 frases
+    const paragraphs = [];
+    for (let i = 0; i < deduped.length; i += 4) {
+      paragraphs.push(deduped.slice(i, i + 4).join(' '));
+    }
+    scroll.innerHTML = `
+      <div style="padding:0 0 8px;margin-bottom:24px;border-bottom:1px solid var(--border)">
+        <span style="font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--text-dim)">
+          ⚠ Subtítulo no disponible como archivo — mostrando texto del índice
+        </span>
+      </div>
+      ${paragraphs.map(p => `<p class="clean-paragraph">${p}</p>`).join('')}
+    `;
+  }
+}
+
+// ── VTT PARSER ──
+function parseVTT(text) {
+  const lines = text.split(/\r?\n/);
+  const cues = [];
+  const seen = new Set();
+  let start = null, end = null, textLines = [];
+  let inCue = false;
+
+  const TS_RX = /(\d{2}):(\d{2}):(\d{2})\.(\d{3})\s*-->\s*(\d{2}):(\d{2}):(\d{2})\.(\d{3})/;
+  const TAG_RX = /<[^>]+>/g;
+  const ENTITY_MAP = {'&amp;':'&','&lt;':'<','&gt;':'>','&nbsp;':' ','&#39;':"'"};
+
+  function toSec(h,m,s,ms) { return +h*3600 + +m*60 + +s + +ms/1000; }
+
+  function cleanLine(l) {
+    return l
+      .replace(TAG_RX, '')
+      .replace(/&\w+;|&#\d+;/g, e => ENTITY_MAP[e] || e)
+      .replace(/\s+/, ' ').trim();
+  }
+
+  for (const line of lines) {
+    const m = TS_RX.exec(line);
+    if (m) {
+      if (start !== null && textLines.length) {
+        const t = textLines[textLines.length - 1];
+        if (t && !seen.has(t)) { cues.push({ start, end, text: t }); seen.add(t); }
+      }
+      start = toSec(m[1],m[2],m[3],m[4]);
+      end   = toSec(m[5],m[6],m[7],m[8]);
+      textLines = [];
+      inCue = true;
+      continue;
+    }
+    if (inCue) {
+      if (line.trim() === '') {
+        if (textLines.length) {
+          // ASR YouTube: primera linea repite cue anterior, usar solo la ultima
+          const t = textLines[textLines.length - 1];
+          if (t && !seen.has(t)) { cues.push({ start, end, text: t }); seen.add(t); }
+        }
+        inCue = false; start = null; textLines = [];
+      } else {
+        const cl = cleanLine(line);
+        if (cl && !/^\d+$/.test(cl)) textLines.push(cl);
+      }
+    }
+  }
+  // Last cue
+  if (start !== null && textLines.length) {
+    const t = textLines[textLines.length - 1];
+    if (t && !seen.has(t)) cues.push({ start, end, text: t });
+  }
+  return cues;
+}
+
+// ── DEDUP SOLAPAMIENTO ──
+// YouTube ASR genera ventanas deslizantes donde cada cue contiene
+// el texto completo del cue anterior + palabras nuevas.
+// Algoritmo: si cue[i] es prefijo de cue[i+1], descartar cue[i].
+// Si cue[i+1] empieza con un sufijo de cue[i], recortar ese prefijo.
+function dedupCues(cues) {
+  if (!cues.length) return cues;
+
+  // Paso 1: si un cue es subconjunto total del siguiente, eliminarlo
+  const filtered = [];
+  for (let i = 0; i < cues.length; i++) {
+    const curr = cues[i].text.trim();
+    const next = cues[i + 1] ? cues[i + 1].text.trim() : null;
+    // Si el siguiente cue empieza con el texto actual completo, este cue es redundante
+    if (next && next.startsWith(curr) && next.length > curr.length) continue;
+    filtered.push(cues[i]);
+  }
+
+  // Paso 2: recortar solapamientos parciales entre cues consecutivos
+  const result = [filtered[0]];
+  for (let i = 1; i < filtered.length; i++) {
+    const prev = result[result.length - 1].text;
+    const curr = filtered[i].text;
+
+    // Buscar el solapamiento más largo: fin de prev == inicio de curr
+    let overlap = 0;
+    const maxCheck = Math.min(prev.length, curr.length, 200);
+    for (let len = maxCheck; len > 8; len--) {
+      if (prev.endsWith(curr.slice(0, len))) {
+        overlap = len;
+        break;
+      }
+    }
+
+    if (overlap > 0) {
+      const trimmed = curr.slice(overlap).trim();
+      if (trimmed.length < 6) continue; // descartar si queda muy poco
+      result.push({ ...filtered[i], text: trimmed });
+    } else {
+      result.push(filtered[i]);
+    }
+  }
+  return result;
+}
+
+// ── GROUP CUES INTO PARAGRAPHS ──
+function groupCues(cues, gapSec = 2.5, maxLines = 8) {
+  if (!cues.length) return [];
+  const groups = [];
+  let current = { 
+    start: cues[0].start, 
+    end: cues[0].end, 
+    texts: [cues[0].text],
+    lineCount: 1
+  };
+
+  for (let i = 1; i < cues.length; i++) {
+    const c = cues[i];
+    const gap = c.start - current.end;
+    
+    // Si hay un silencio largo (>2.5s) o hemos llegado al maximo de lineas, romper parrafo
+    if (gap > gapSec || current.lineCount >= maxLines) {
+      groups.push(current);
+      current = { 
+        start: c.start, 
+        end: c.end, 
+        texts: [c.text],
+        lineCount: 1
+      };
+    } else {
+      current.end = c.end;
+      current.texts.push(c.text);
+      current.lineCount++;
+    }
+  }
+  groups.push(current);
+  return groups;
+}
+
+// ── RENDER SUBTITLE CONTENT ──
+function renderSubtitleContent() {
+  const scroll = document.getElementById("subtitle-scroll");
+  inlineMatches = [];
+  inlineCurrent = 0;
+
+  if (!loadedCues.length) return;
+
+  let html = "";
+
+  if (viewMode === "clean") {
+    // Group into readable paragraphs
+    const groups = groupCues(loadedCues, 2.5, 8);
+    for (const g of groups) {
+      const rawText = g.texts.join(' ');
+      const text = inlineQuery ? highlight(rawText, inlineQuery) : rawText;
+      html += `<p class="clean-paragraph">${text}</p>`;
+    }
+  } else {
+    // Timestamped view
+    for (const cue of loadedCues) {
+      const tsStr = secondsToTs(cue.start);
+      const vidId = activeVideoId;
+      const ytUrl = `https://www.youtube.com/watch?v=${vidId}&t=${Math.floor(cue.start)}s`;
+      const text = inlineQuery ? highlight(cue.text, inlineQuery) : cue.text;
+      html += `
+        <div class="subtitle-block">
+          <div class="ts-gutter">
+            <a class="ts-link" href="${ytUrl}" target="_blank" rel="noopener" title="Abrir en YouTube en este momento">${tsStr}</a>
+          </div>
+          <div class="sub-text">${text}</div>
+        </div>
+      `;
+    }
+  }
+
+  scroll.innerHTML = html;
+
+  // Collect mark elements for navigation
+  if (inlineQuery) {
+    inlineMatches = Array.from(scroll.querySelectorAll("mark"));
+    if (inlineMatches.length > 0) {
+      navigateMatches(0, true);
+    }
+    document.getElementById("match-nav").textContent =
+      inlineMatches.length > 0
+        ? `${inlineCurrent+1}/${inlineMatches.length}`
+        : "Sin resultados";
+  } else {
+    document.getElementById("match-nav").textContent = "";
+  }
+}
+
+function navigateMatches(delta, absolute = false) {
+  if (!inlineMatches.length) return;
+
+  inlineMatches[inlineCurrent]?.classList.remove("current");
+
+  if (absolute) {
+    inlineCurrent = 0;
+  } else {
+    inlineCurrent = (inlineCurrent + delta + inlineMatches.length) % inlineMatches.length;
+  }
+
+  const el = inlineMatches[inlineCurrent];
+  el?.classList.add("current");
+  el?.scrollIntoView({ behavior: "smooth", block: "center" });
+
+  document.getElementById("match-nav").textContent =
+    `${inlineCurrent+1}/${inlineMatches.length}`;
+}
+
+function setViewMode(mode) {
+  viewMode = mode;
+  document.getElementById("btn-clean").classList.toggle("active", mode === "clean");
+  document.getElementById("btn-ts").classList.toggle("active", mode === "ts");
+  if (loadedCues.length) renderSubtitleContent();
+}
+
+// ── APP TABS ──
+function setAppTab(tab) {
+  const isDownload = tab === 'download';
+  const isLLM = tab === 'llm';
+  const isLibrary = tab === 'library';
+  
+  document.getElementById('download-panel').classList.toggle('visible', isDownload);
+  document.getElementById('llm-panel').classList.toggle('visible', isLLM);
+  document.getElementById('library-view').style.display = (isDownload || isLLM) ? 'none' : 'flex';
+  
+  document.getElementById('tab-library').classList.toggle('active', isLibrary);
+  document.getElementById('tab-download').classList.toggle('active', isDownload);
+  document.getElementById('tab-llm').classList.toggle('active', isLLM);
+}
+
+// ── DOWNLOAD TAB ──
+let _pollTimer = null;
+let _logOffset = 0;
+
+function startDownload() {
+  const url  = document.getElementById('dl-url').value.trim();
+  const lang = document.getElementById('dl-lang').value;
+  if (!url) { alert('Introduce una URL de YouTube'); return; }
+  callApi(`/api/download?url=${encodeURIComponent(url)}&lang=${encodeURIComponent(lang)}`);
+}
+
+function startReindex() {
+  callApi('/api/reindex');
+}
+
+function callApi(endpoint) {
+  fetch(endpoint)
+    .then(r => r.json())
+    .then(d => {
+      if (!d.ok) { alert(d.msg); return; }
+      showLog();
+      startPolling();
+    })
+    .catch(() => alert('No se pudo conectar con el servidor. ¿Está server.py en marcha?'));
+}
+
+function showLog() {
+  _logOffset = 0;
+  const logEl = document.getElementById('dl-log');
+  logEl.textContent = '';
+  logEl.classList.add('visible');
+  document.getElementById('dl-status').style.display = 'flex';
+  document.getElementById('dl-start-btn').disabled = true;
+}
+
+function startPolling() {
+  clearInterval(_pollTimer);
+  _pollTimer = setInterval(pollLog, 800);
+}
+
+function pollLog() {
+  fetch(`/api/log?offset=${_logOffset}`)
+    .then(r => r.json())
+    .then(d => {
+      if (d.lines.length) {
+        const logEl = document.getElementById('dl-log');
+        logEl.textContent += d.lines.join('\n') + '\n';
+        logEl.scrollTop = logEl.scrollHeight;
+        _logOffset = d.total;
+      }
+      if (!d.running) {
+        clearInterval(_pollTimer);
+        document.getElementById('dl-status').style.display = 'none';
+        document.getElementById('dl-start-btn').disabled = false;
+        document.getElementById('dl-status-msg').textContent = 'Procesando…';
+        // Recargar índice
+        setTimeout(() => { if (confirm('¿Recargar la biblioteca con los nuevos vídeos?')) location.reload(); }, 500);
+      }
+    });
+}
+
+// ── LLM TAB ──
+
+async function sendLLMQuery() {
+  const query = document.getElementById('llm-query').value.trim();
+  if (!query) {
+    alert('Por favor, escribe una pregunta');
+    return;
+  }
+  const provider = document.getElementById('llm-provider').value;
+  const model = document.getElementById('llm-model').value;
+  const apiKey = document.getElementById('llm-api-key').value.trim();
+  if (!apiKey) {
+    alert('Introduce una clave API para el proveedor seleccionado antes de enviar la consulta.');
+    return;
+  }
+  
+  const loadingEl = document.getElementById('llm-loading');
+  const responseEl = document.getElementById('llm-response');
+  const btnEl = document.getElementById('llm-send-btn');
+  
+  // UI: mostrar loading
+  loadingEl.style.display = 'flex';
+  responseEl.classList.remove('visible', 'error');
+  btnEl.disabled = true;
+  
+  try {
+    // Preparar contexto: videos seleccionados (opcional) o todos
+    const selectedVideos = [];
+    if (activeVideoId && index) {
+      const video = index.videos.find(v => v.video_id === activeVideoId);
+      if (video) selectedVideos.push(video);
+    }
+    
+    // Enviar consulta
+    const response = await fetch('/api/llm-query', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: query,
+        videos: selectedVideos,
+        provider,
+        model,
+        api_key: apiKey
+      })
+    });
+    
+    const data = await response.json();
+    
+    if (data.ok) {
+      responseEl.textContent = data.response;
+      responseEl.classList.add('visible');
+      document.getElementById('llm-export-actions').style.display = 'flex';
+    } else {
+      responseEl.textContent = `❌ Error: ${data.error}`;
+      responseEl.classList.add('visible', 'error');
+      document.getElementById('llm-export-actions').style.display = 'none';
+    }
+  } catch (e) {
+    responseEl.textContent = `❌ Error de conexión: ${e.message}`;
+    responseEl.classList.add('visible', 'error');
+    document.getElementById('llm-export-actions').style.display = 'none';
+  } finally {
+    loadingEl.style.display = 'none';
+    btnEl.disabled = false;
+  }
+}
+
+// ── EXPORT MANAGER ──
+const ExportManager = {
+  // Helpers
+  _download(content, filename, type) {
+    const blob = new Blob([content], { type });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  },
+
+  _sanitize(text) {
+    return text.replace(/[\\/*?:"<>|]/g, '');
+  },
+
+  // Metadata para MD
+  _getMDFrontmatter(video) {
+    return [
+      '---',
+      `title: "${video.title.replace(/"/g, '\\"')}"`,
+      `channel: "${video.channel}"`,
+      `published: ${formatDate(video.published)}`,
+      `url: "${video.url}"`,
+      `video_id: "${video.video_id}"`,
+      `exported_at: ${new Date().toISOString().split('T')[0]}`,
+      'tags: [verbasant, youtube, transcription]',
+      '---',
+      ''
+    ].join('\n');
+  },
+
+  // Exportar vídeo activo a Markdown
+  activeVideoToMD() {
+    if (!activeVideoId || !index) return;
+    const video = index.videos.find(v => v.video_id === activeVideoId);
+    if (!video) return;
+
+    let content = this._getMDFrontmatter(video);
+    content += `# ${video.title}\n\n`;
+    
+    // Contenido: párrafos limpios
+    const groups = groupCues(loadedCues, 3.0);
+    if (groups.length) {
+      groups.forEach(g => {
+        content += `${g.texts.join(' ')}\n\n`;
+      });
+    } else {
+      content += video.full_text || 'Sin contenido.';
+    }
+
+    content += `\n---\n*Generado automáticamente por VerbaSant*`;
+    
+    const filename = `${this._sanitize(video.title)}.md`;
+    this._download(content, filename, 'text/markdown');
+  },
+
+  // Exportar vídeo activo a PDF
+  async activeVideoToPDF() {
+    if (!activeVideoId || !index) return;
+    const video = index.videos.find(v => v.video_id === activeVideoId);
+    if (!video) return;
+
+    const template = document.getElementById('pdf-template');
+    
+    // Llenar template
+    document.getElementById('pdf-date-meta').textContent = new Date().toLocaleDateString();
+    document.getElementById('pdf-main-title').textContent = video.title;
+    document.getElementById('pdf-info-channel').textContent = video.channel;
+    document.getElementById('pdf-info-date').textContent = formatDate(video.published);
+    document.getElementById('pdf-info-url').textContent = video.url;
+
+    const contentArea = document.getElementById('pdf-main-content');
+    contentArea.innerHTML = '';
+    
+    const groups = groupCues(loadedCues, 3.0);
+    if (groups.length) {
+      groups.forEach(g => {
+        const p = document.createElement('p');
+        p.textContent = g.texts.join(' ');
+        contentArea.appendChild(p);
+      });
+    } else {
+      contentArea.innerHTML = `<p>${video.full_text || 'Sin contenido.'}</p>`;
+    }
+
+    const opt = {
+      margin: 1,
+      filename: `${this._sanitize(video.title)}.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true },
+      jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' },
+      pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+    };
+
+    template.style.display = 'block';
+    try {
+      await html2pdf().set(opt).from(template).save();
+    } catch(e) {
+      console.error(e);
+      alert('Error generando PDF: ' + e.message);
+    } finally {
+      template.style.display = 'none';
+    }
+  },
+
+  // Exportar respuesta IA a Markdown
+  aiResponseToMD() {
+    const query = document.getElementById('llm-query').value.trim();
+    const response = document.getElementById('llm-response').textContent;
+    const provider = document.getElementById('llm-provider').value;
+    const model = document.getElementById('llm-model').value;
+
+    if (!response) return;
+
+    let content = '---\n';
+    content += `type: ai-query\n`;
+    content += `provider: ${provider}\n`;
+    content += `model: ${model}\n`;
+    content += `date: ${new Date().toISOString().split('T')[0]}\n`;
+    content += 'tags: [verbasant, ai-analysis]\n';
+    content += '---\n\n';
+    content += `# Consulta IA\n\n`;
+    content += `**Pregunta:**\n> ${query}\n\n`;
+    content += `**Respuesta:**\n\n${response}\n\n`;
+    content += `---\n*Generado automáticamente por VerbaSant*`;
+
+    const filename = `IA_Respuesta_${new Date().getTime()}.md`;
+    this._download(content, filename, 'text/markdown');
+  },
+
+  // Exportar respuesta IA a PDF
+  async aiResponseToPDF() {
+    const query = document.getElementById('llm-query').value.trim();
+    const response = document.getElementById('llm-response').textContent;
+    if (!response) return;
+
+    const template = document.getElementById('pdf-template');
+    
+    document.getElementById('pdf-date-meta').textContent = new Date().toLocaleDateString();
+    document.getElementById('pdf-main-title').textContent = "Consulta IA - VerbaSant";
+    document.getElementById('pdf-info-channel').textContent = "N/A (Multi-vídeo / Análisis)";
+    document.getElementById('pdf-info-date').textContent = new Date().toLocaleDateString();
+    document.getElementById('pdf-info-url').textContent = "Consulta generada sobre el corpus local";
+
+    const contentArea = document.getElementById('pdf-main-content');
+    contentArea.innerHTML = `<h3>Pregunta:</h3><p><i>${query}</i></p><br><h3>Respuesta:</h3>`;
+    
+    // Dividir respuesta en párrafos para el PDF
+    response.split('\n\n').forEach(block => {
+      const p = document.createElement('p');
+      p.textContent = block;
+      contentArea.appendChild(p);
+    });
+
+    const opt = {
+      margin: 1,
+      filename: `IA_Respuesta_${new Date().getTime()}.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2 },
+      jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+    };
+
+    template.style.display = 'block';
+    try {
+      await html2pdf().set(opt).from(template).save();
+    } finally {
+      template.style.display = 'none';
+    }
+  }
+};
+
+// ── BOOT ──
+loadIndex();
+</script>
+</body>
+</html>
